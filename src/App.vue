@@ -1,8 +1,26 @@
 <template>
   <div id="app">
     <h1>D3.js Pyramid Chart in Vue</h1>
-    <div class="flex-row flex"></div>
-    <PyramidChart :data="chartData" :width="1000" :height="750" />
+    <div class="scene">
+      <div class="pyramid-container">
+        <PyramidChart
+          :data="chartData"
+          :width="600"
+          :height="450"
+          activeColor="#f75c4b"
+          :onclickPointer="(val) => console.log(val)"
+          position="left"
+        />
+        <PyramidChart
+          :data="chartData2"
+          :width="600"
+          :height="450"
+          activeColor="#a2d97e"
+          :onclickPointer="(val) => console.log(val)"
+          position="right"
+        />
+      </div>
+    </div>
     <div class="data-display">
       <h3>Current Data:</h3>
       <pre>{{ JSON.stringify(chartData, null, 2) }}</pre>
@@ -40,6 +58,27 @@ export default {
         { name: "Operating Performance", level: 3, onprogress: true },
         { name: "More Energy", level: 4, onprogress: true },
         { name: "Growing Cash Flow", level: 4, onprogress: true },
+      ],
+      chartData2: [
+        { name: "Reduce Emissions", level: 1, onprogress: true },
+        { name: "Cost vigilance", level: 1, onprogress: true },
+        {
+          name: "DE",
+          level: 2,
+          subchild: [
+            { subLevel: 1, name: "Operational Efficienct", onprogress: true },
+            {
+              subLevel: 2,
+              name: "Deliver Profitable Project",
+              onprogress: false,
+            },
+          ],
+        },
+        { name: "Operational Cost", level: 2, onprogress: false },
+        { name: "Decresing Methane Intensity", level: 2, onprogress: true },
+        { name: "Environnemental Performance", level: 3, onprogress: true },
+        { name: "More Sustainable", level: 4, onprogress: true },
+        { name: "Less Emissions", level: 4, onprogress: true },
       ],
     };
   },
@@ -88,5 +127,20 @@ button:hover {
 
 pre {
   overflow-x: auto;
+}
+
+/* 3D scene container with enhanced perspective */
+.scene {
+  margin: 150px auto;
+}
+
+.pyramid-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 </style>

@@ -1,5 +1,8 @@
 <template>
-  <div ref="chart" class="chart"></div>
+  <div
+    ref="chart"
+    :class="position === 'left' ? 'chart-left' : 'chart-right'"
+  ></div>
 </template>
 
 <script>
@@ -19,9 +22,19 @@ export default {
       type: Array,
       required: true,
     },
+    activeColor: {
+      type: String,
+      default: "#f75c4b",
+    },
+    onclickPointer: {
+      type: Function,
+      default: () => {},
+    },
+    position: {
+      type: String,
+    },
   },
-  emits: ["section-click"],
-  setup(props, { emit }) {
+  setup(props) {
     const chart = ref(null);
 
     // Function to wrap text to fit maximum character length
@@ -69,18 +82,20 @@ export default {
       const width = props.width;
       const height = props.height;
 
-      // Create color scale
+      // Create color scale using the activeColor prop
       const baseColors = {
-        true: "#f75c4b", // Orange for onprogress = true
+        true: props.activeColor, // Use activeColor prop for onprogress = true
         false: "#d3d3d3", // Gray for onprogress = false
       };
 
-      // Create SVG
+      // Create SVG with improved pointer events handling
       const svg = d3
         .select(chart.value)
         .append("svg")
         .attr("width", width)
         .attr("height", height)
+        .attr("class", "pyramid-svg")
+        .style("pointer-events", "all") // Ensure pointer events work with 3D transforms
         .append("g");
 
       // Group data by level
@@ -104,7 +119,7 @@ export default {
       // Define custom D3 pyramid layout function
       const pyramid = (data) => {
         const result = [];
-        const baseWidth = width * 0.8;
+        const baseWidth = width;
         const maxLevel = Math.max(...data.map((d) => d.level));
         const levels = data.length;
 
@@ -112,11 +127,10 @@ export default {
         data.forEach((d, i) => {
           const level = d.level;
           // Calculate the vertical position (y) based on level
-          const levelHeight = (height * 0.8) / maxLevel;
-          const topMargin = height * 0.1;
+          const levelHeight = height / maxLevel;
 
-          const yTop = topMargin + (level - 1) * levelHeight;
-          const yBottom = topMargin + level * levelHeight;
+          const yTop = (level - 1) * levelHeight;
+          const yBottom = level * levelHeight;
 
           let coordinates = [];
 
@@ -276,19 +290,32 @@ export default {
 
       // Draw individual block shapes
       pyramidData.forEach((levelData) => {
+        // Create a group for this level for better organization
+        const levelGroup = svg
+          .append("g")
+          .attr("class", "level-group")
+          .attr("data-level", levelData.level);
+
         levelData.itemCoordinates.forEach((item, idx) => {
           // Skip if coordinates are not properly defined
           if (!item.coordinates || item.coordinates.length === 0) return;
 
+          // Create a group for this item
+          const itemGroup = levelGroup
+            .append("g")
+            .attr("class", "item-group")
+            .attr("data-item-idx", idx);
+
           // Draw the shape - now using onprogress status for coloring
-          svg
+          itemGroup
             .append("path")
             .attr("d", line(item.coordinates))
             .style("fill", baseColors[item.onprogress])
             .style("stroke", "#ffffff")
-            .style("stroke-width", 1)
+            .style("stroke-width", 5)
+            .style("pointer-events", "all")
             .on("click", () => {
-              emit("section-click", {
+              props.onclickPointer({
                 level: levelData.level,
                 name: item.name,
                 item: item.originalItem,
@@ -304,7 +331,7 @@ export default {
             const nextItem = levelData.itemCoordinates[idx + 1];
 
             // Draw a divider line from the top point to the bottom
-            svg
+            itemGroup
               .append("line")
               .attr("x1", item.coordinates[0].x)
               .attr("y1", item.coordinates[0].y)
@@ -339,7 +366,7 @@ export default {
                 ? item.coordinates[2].y
                 : item.coordinates[1].y;
 
-            svg
+            itemGroup
               .append("line")
               .attr("x1", x1)
               .attr("y1", y1)
@@ -367,6 +394,11 @@ export default {
 
             // Calculate height per subchild
             const subchildHeight = blockHeight / subchildCount;
+
+            // Create a group for subchildren
+            const subchildGroup = itemGroup
+              .append("g")
+              .attr("class", "subchild-group");
 
             // Create subchild sections
             subchild.forEach((child, childIdx) => {
@@ -434,6 +466,12 @@ export default {
                     (item.coordinates[3].x - item.coordinates[2].x);
               }
 
+              // Create individual subchild group
+              const singleSubchildGroup = subchildGroup
+                .append("g")
+                .attr("class", "single-subchild")
+                .attr("data-subchild-idx", childIdx);
+
               // Create subchild section with correct color
               const subchildCoords = [
                 { x: topLeftX, y: subchildY },
@@ -443,14 +481,15 @@ export default {
               ];
 
               // Draw subchild section with appropriate color
-              svg
+              singleSubchildGroup
                 .append("path")
                 .attr("d", line(subchildCoords))
                 .style("fill", subChildColor)
                 .style("stroke", "#ffffff")
                 .style("stroke-width", 1)
+                .style("pointer-events", "all")
                 .on("click", () => {
-                  emit("section-click", {
+                  props.onclickPointer({
                     level: levelData.level,
                     name: item.name,
                     subchild: child,
@@ -467,8 +506,13 @@ export default {
               const wrappedText = wrapText(child.name);
               const lineHeight = 14; // Adjust as needed
 
+              // Add text group
+              const textGroup = singleSubchildGroup
+                .append("g")
+                .attr("class", "text-group");
+
               wrappedText.forEach((line, lineIdx) => {
-                svg
+                textGroup
                   .append("text")
                   .attr("x", subchildCenterX)
                   .attr(
@@ -479,23 +523,40 @@ export default {
                   )
                   .attr("text-anchor", "middle")
                   .attr("alignment-baseline", "middle")
-                  .style("font-size", "10px")
+                  .style("font-size", "8px")
                   .style("fill", "#ffffff")
+                  .style("pointer-events", "none") // Prevent text from intercepting clicks
                   .text(line);
               });
 
-              // Add pointer circle with color based on onprogress status
-              svg
+              // Add enhanced pointer circle with hover effects
+              singleSubchildGroup
                 .append("circle")
                 .attr("cx", subchildCenterX)
                 .attr("cy", subchildCenterY + 25)
-                .attr("r", 3)
+                .attr("r", 5) // Slightly larger for better clickability
                 .attr("fill", "#ffffff")
                 .attr("stroke", "#000000")
                 .attr("stroke-width", 1)
                 .style("cursor", "pointer")
+                .style("pointer-events", "all") // Ensure pointer events work with transforms
+                .on("mouseover", function () {
+                  d3.select(this)
+                    .transition()
+                    .duration(150)
+                    .attr("r", 7)
+                    .attr("fill", "#ffcc00"); // Highlight color on hover
+                })
+                .on("mouseout", function () {
+                  d3.select(this)
+                    .transition()
+                    .duration(150)
+                    .attr("r", 5)
+                    .attr("fill", "#ffffff");
+                })
                 .on("click", () => {
-                  emit("section-click", {
+                  // Call the onclickPointer prop function
+                  props.onclickPointer({
                     level: levelData.level,
                     name: item.name,
                     subchild: child,
@@ -529,13 +590,16 @@ export default {
               textY = yCenter;
             }
 
+            // Add text group
+            const textGroup = itemGroup.append("g").attr("class", "text-group");
+
             // Wrap text for the section name
             const wrappedText = wrapText(item.name);
             const lineHeight = 14; // Adjust as needed
 
             // Add wrapped name lines
             wrappedText.forEach((line, lineIdx) => {
-              svg
+              textGroup
                 .append("text")
                 .attr("x", textX)
                 .attr(
@@ -546,26 +610,43 @@ export default {
                 )
                 .attr("text-anchor", "middle")
                 .attr("alignment-baseline", "middle")
-                .style("font-size", "10px")
+                .style("font-size", "8px")
                 .style("fill", "#ffffff")
+                .style("pointer-events", "none") // Prevent text from intercepting clicks
                 .text(line);
             });
 
             // Position for pointer
             const pointerY = textY + 4 + wrappedText.length * 7;
 
-            // Add pointer circle
-            svg
+            // Add enhanced pointer circle with hover effects
+            itemGroup
               .append("circle")
               .attr("cx", textX)
               .attr("cy", pointerY)
-              .attr("r", 3)
+              .attr("r", 5) // Slightly larger for better clickability
               .attr("fill", "#ffffff")
               .attr("stroke", "#000000")
               .attr("stroke-width", 1)
               .style("cursor", "pointer")
+              .style("pointer-events", "all") // Ensure pointer events work with transforms
+              .on("mouseover", function () {
+                d3.select(this)
+                  .transition()
+                  .duration(150)
+                  .attr("r", 7)
+                  .attr("fill", "#ffcc00"); // Highlight color on hover
+              })
+              .on("mouseout", function () {
+                d3.select(this)
+                  .transition()
+                  .duration(150)
+                  .attr("r", 5)
+                  .attr("fill", "#ffffff");
+              })
               .on("click", () => {
-                emit("section-click", {
+                // Call the onclickPointer prop function
+                props.onclickPointer({
                   level: levelData.level,
                   name: item.name,
                   item: item.originalItem,
@@ -583,7 +664,7 @@ export default {
 
     // Watch for changes in data or dimensions and redraw
     watch(
-      () => [props.data, props.width, props.height],
+      () => [props.data, props.width, props.height, props.activeColor],
       () => {
         createPyramidChart();
       },
@@ -598,7 +679,68 @@ export default {
 </script>
 
 <style scoped>
-.arc path {
-  stroke: #fff;
+.chart-left {
+  transform: rotateY(-35deg) rotateZ(26deg) rotateX(15deg);
+  transform-origin: right center;
+  margin-right: -100px;
+  transform-style: preserve-3d;
+  position: relative;
+  z-index: 1; /* Fixed z-index */
+  width: min-content;
+  height: min-content;
+}
+
+.chart-right {
+  transform: rotateY(35deg) rotateZ(-26deg) rotateX(15deg);
+  transform-origin: left center;
+  margin-left: -100px;
+  transform-style: preserve-3d;
+  position: relative;
+  z-index: 1; /* Fixed z-index - slightly lower than left chart */
+}
+
+/* Ensure SVG elements remain interactive despite transforms */
+.pyramid-svg {
+  pointer-events: all;
+  position: relative;
+  z-index: auto;
+}
+
+/* Enhanced pointer event handling for nested elements */
+.level-group {
+  pointer-events: all;
+}
+
+.item-group {
+  pointer-events: all;
+}
+
+.subchild-group {
+  pointer-events: all;
+}
+
+/* Ensure text doesn't interfere with clicks */
+.text-group {
+  pointer-events: none;
+}
+
+/* Fix for 3D transformed elements - ensure they can be clicked */
+svg path,
+svg circle {
+  pointer-events: all !important;
+  cursor: pointer;
+}
+
+/* Add element isolation for better stacking context in 3D */
+.chart-left,
+.chart-right {
+  isolation: isolate;
+  backface-visibility: hidden;
+}
+
+/* Make sure the pointer events are properly captured */
+.chart-left:hover,
+.chart-right:hover {
+  z-index: 2; /* Bring active chart to front when hovered */
 }
 </style>
