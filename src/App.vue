@@ -2,85 +2,63 @@
   <div id="app">
     <h1>D3.js Pyramid Chart in Vue</h1>
     <div class="scene">
-      <div class="pyramid-container">
+      <div class="pyramid-container" v-if="chartData.length > 0">
         <PyramidChart
           :data="chartData"
-          :width="600"
-          :height="450"
+          :width="400"
+          :height="500"
           activeColor="#f75c4b"
-          :onclickPointer="(val) => console.log(val)"
+          :onclickPointer="handleClick"
           position="left"
         />
         <PyramidChart
-          :data="chartData2"
-          :width="600"
-          :height="450"
+          :data="chartData"
+          :width="400"
+          :height="500"
           activeColor="#a2d97e"
-          :onclickPointer="(val) => console.log(val)"
+          :onclickPointer="handleClick"
           position="right"
         />
       </div>
     </div>
-    <div class="data-display">
-      <h3>Current Data:</h3>
-      <pre>{{ JSON.stringify(chartData, null, 2) }}</pre>
-    </div>
+    <!-- Popup Modal -->
+    <PopupModal
+      :show="showPopup"
+      :item="selectedItem"
+      @close="closePopup"
+      v-if="selectedItem"
+    />
   </div>
 </template>
 
 <script>
-import PyramidChart from "./Chart.vue";
-
+import PyramidChart from "./components/Chart.vue";
+import PopupModal from "./components/PopupModal.vue";
+import { chartData as importedChartData } from "./data/chart.ts";
 export default {
   name: "App",
   components: {
     PyramidChart,
+    PopupModal,
   },
   data() {
     return {
-      chartData: [
-        { name: "Production optimization", level: 1, onprogress: true },
-        { name: "Cost vigilance", level: 1, onprogress: true },
-        {
-          name: "DE",
-          level: 2,
-          subchild: [
-            { subLevel: 1, name: "Operational Efficienct", onprogress: true },
-            {
-              subLevel: 2,
-              name: "Deliver Profitable Project",
-              onprogress: false,
-            },
-          ],
-        },
-        { name: "Operational Cost", level: 2, onprogress: false },
-        { name: "Decresing Methane Intensity", level: 2, onprogress: true },
-        { name: "Operating Performance", level: 3, onprogress: true },
-        { name: "More Energy", level: 4, onprogress: true },
-        { name: "Growing Cash Flow", level: 4, onprogress: true },
-      ],
-      chartData2: [
-        { name: "Reduce Emissions", level: 1, onprogress: true },
-        { name: "Cost vigilance", level: 1, onprogress: true },
-        {
-          name: "DE",
-          level: 2,
-          subchild: [
-            { subLevel: 1, name: "Operational Efficienct", onprogress: true },
-            {
-              subLevel: 2,
-              name: "Deliver Profitable Project",
-              onprogress: false,
-            },
-          ],
-        },
-        { name: "Operational Cost", level: 2, onprogress: false },
-        { name: "Decresing Methane Intensity", level: 2, onprogress: true },
-        { name: "Environnemental Performance", level: 3, onprogress: true },
-        { name: "More Sustainable", level: 4, onprogress: true },
-        { name: "Less Emissions", level: 4, onprogress: true },
-      ],
+      showPopup: false,
+      selectedItem: null,
+      chartData: importedChartData, // assign imported data to reactive property
     };
+  },
+  methods: {
+    handleClick(item) {
+      this.selectedItem = item;
+      this.showPopup = true;
+      console.log("Clicked item:", item);
+      console.log("Clicked item name:", item.onprogress);
+    },
+    closePopup() {
+      this.showPopup = false;
+      this.selectedItem = null;
+    },
   },
 };
 </script>
